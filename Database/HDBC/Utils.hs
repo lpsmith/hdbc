@@ -41,6 +41,7 @@ import qualified Data.Map as Map
 import Control.Exception
 import System.IO.Unsafe
 import Data.List(genericLength)
+import Data.ByteString(ByteString)
 
 -- import Data.Dynamic below for GHC < 6.10
 
@@ -50,7 +51,7 @@ import Data.List(genericLength)
 If it raises a 'SqlError', then execute the supplied handler and return its
 return value.  Otherwise, proceed as normal. -}
 catchSql :: IO a -> (SqlError -> IO a) -> IO a
-catchSql action handler = 
+catchSql action handler =
     catchJust sqlExceptions action handler
 
 {- | Like 'catchSql', with the order of arguments reversed. -}
@@ -92,24 +93,24 @@ handleSqlError action =
     where handler e = fail ("SQL error: " ++ show e)
 
 {- | Like 'run', but take a list of Maybe Strings instead of 'SqlValue's. -}
-sRun :: IConnection conn => conn -> String -> [Maybe String] -> IO Integer
+sRun :: IConnection conn => conn -> ByteString -> [Maybe ByteString] -> IO Integer
 sRun conn qry lst =
     run conn qry (map toSql lst)
 
 {- | Like 'execute', but take a list of Maybe Strings instead of
    'SqlValue's. -}
-sExecute :: Statement -> [Maybe String] -> IO Integer
+sExecute :: Statement -> [Maybe ByteString] -> IO Integer
 sExecute sth lst = execute sth (map toSql lst)
 
 {- | Like 'executeMany', but take a list of Maybe Strings instead of
    'SqlValue's. -}
-sExecuteMany :: Statement -> [[Maybe String]] -> IO ()
-sExecuteMany sth lst = 
+sExecuteMany :: Statement -> [[Maybe ByteString]] -> IO ()
+sExecuteMany sth lst =
     executeMany sth (map (map toSql) lst)
 
 {- | Like 'fetchRow', but return a list of Maybe Strings instead of
    'SqlValue's. -}
-sFetchRow :: Statement -> IO (Maybe [Maybe String])
+sFetchRow :: Statement -> IO (Maybe [Maybe ByteString])
 sFetchRow sth =
     do res <- fetchRow sth
        case res of
@@ -146,7 +147,7 @@ withTransaction conn func =
     do r <- onException (func conn) doRollback
        commit conn
        return r
-    where doRollback = 
+    where doRollback =
               -- Discard any exception from (rollback conn) so original
               -- exception can be re-raised
               Control.Exception.catch (rollback conn) doRollbackHandler
@@ -157,7 +158,7 @@ withTransaction conn func =
        case r of
          Right x -> do commit conn
                        return x
-         Left e -> 
+         Left e ->
              do try (rollback conn) -- Discard any exception here
                 throw e
 #endif
@@ -206,13 +207,13 @@ fetchAllRows' sth =
        return res
 
 {- | Like 'fetchAllRows', but return Maybe Strings instead of 'SqlValue's. -}
-sFetchAllRows :: Statement -> IO [[Maybe String]]
+sFetchAllRows :: Statement -> IO [[Maybe ByteString]]
 sFetchAllRows sth =
     do res <- fetchAllRows sth
        return $ map (map fromSql) res
 
 {- | Strict version of 'sFetchAllRows'. -}
-sFetchAllRows' :: Statement -> IO [[Maybe String]]
+sFetchAllRows' :: Statement -> IO [[Maybe ByteString]]
 sFetchAllRows' sth =
     do res <- sFetchAllRows sth
        _ <- evalAll res
@@ -225,7 +226,7 @@ The keys of the column names are lowercase versions of the data returned
 by 'getColumnNames'.  Please heed the warnings there.  Additionally,
 results are undefined if multiple columns are returned with identical names.
 -}
-fetchRowAL :: Statement -> IO (Maybe [(String, SqlValue)])
+fetchRowAL :: Statement -> IO (Maybe [(ByteString, SqlValue)])
 fetchRowAL sth =
     do row <- fetchRow sth
        case row of
@@ -234,7 +235,7 @@ fetchRowAL sth =
                      return $ Just $ zip names r
 
 {- | Strict version of 'fetchRowAL' -}
-fetchRowAL' :: Statement -> IO (Maybe [(String, SqlValue)])
+fetchRowAL' :: Statement -> IO (Maybe [(ByteString, SqlValue)])
 fetchRowAL' sth =
     do res <- fetchRowAL sth
        _ <- case res of
@@ -244,16 +245,16 @@ fetchRowAL' sth =
 
 {- | Similar to 'fetchRowAL', but return a Map instead of an association list.
 -}
-fetchRowMap :: Statement -> IO (Maybe (Map.Map String SqlValue))
-fetchRowMap sth = 
+fetchRowMap :: Statement -> IO (Maybe (Map.Map ByteString SqlValue))
+fetchRowMap sth =
     do r <- fetchRowAL sth
        case r of
               Nothing -> return Nothing
               Just x -> return $ Just $ Map.fromList x
 
 {- | Strict version of 'fetchRowMap' -}
-fetchRowMap' :: Statement -> IO (Maybe (Map.Map String SqlValue))
-fetchRowMap' sth = 
+fetchRowMap' :: Statement -> IO (Maybe (Map.Map ByteString SqlValue))
+fetchRowMap' sth =
     do res <- fetchRowMap sth
        _ <- case res of
             Nothing -> return 0
@@ -264,14 +265,14 @@ fetchRowMap' sth =
 row, return an association list for each row, from column name to value.
 
 See 'fetchRowAL' for more details. -}
-fetchAllRowsAL :: Statement -> IO [[(String, SqlValue)]]
+fetchAllRowsAL :: Statement -> IO [[(ByteString, SqlValue)]]
 fetchAllRowsAL sth =
     do names <- getColumnNames sth
        rows <- fetchAllRows sth
        return $ map (zip names) rows
 
 {- | Strict version of 'fetchAllRowsAL' -}
-fetchAllRowsAL' :: Statement -> IO [[(String, SqlValue)]]
+fetchAllRowsAL' :: Statement -> IO [[(ByteString, SqlValue)]]
 fetchAllRowsAL' sth =
     do res <- fetchAllRowsAL sth
        _ <- evalAll res
@@ -279,26 +280,26 @@ fetchAllRowsAL' sth =
 
 {- | Like 'fetchAllRowsAL', but return a list of Maps instead of a list of
 association lists. -}
-fetchAllRowsMap :: Statement -> IO [Map.Map String SqlValue]
+fetchAllRowsMap :: Statement -> IO [Map.Map ByteString SqlValue]
 fetchAllRowsMap sth = fetchAllRowsAL sth >>= (return . map Map.fromList)
 
 {- | Strict version of 'fetchAllRowsMap' -}
-fetchAllRowsMap' :: Statement -> IO [Map.Map String SqlValue]
-fetchAllRowsMap' sth = 
+fetchAllRowsMap' :: Statement -> IO [Map.Map ByteString SqlValue]
+fetchAllRowsMap' sth =
     do res <- fetchAllRowsMap sth
        _ <- evaluate ((genericLength res)::Integer)
        return res
 
 {- | A quick way to do a query.  Similar to preparing, executing, and
 then calling 'fetchAllRows' on a statement. See also 'quickQuery'' -}
-quickQuery :: IConnection conn => conn -> String -> [SqlValue] -> IO [[SqlValue]]
+quickQuery :: IConnection conn => conn -> ByteString -> [SqlValue] -> IO [[SqlValue]]
 quickQuery conn qrystr args =
     do sth <- prepare conn qrystr
        _ <- execute sth args
        fetchAllRows sth
 
 {- | Strict version of 'quickQuery'. -}
-quickQuery' :: IConnection conn => conn -> String -> [SqlValue] -> IO [[SqlValue]]
+quickQuery' :: IConnection conn => conn -> ByteString -> [SqlValue] -> IO [[SqlValue]]
 quickQuery' conn qrystr args =
     do res <- quickQuery conn qrystr args
        _ <- evalAll res

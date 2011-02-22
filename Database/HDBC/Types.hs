@@ -48,6 +48,7 @@ where
 import Database.HDBC.Statement
 import Database.HDBC.ColTypes
 import Control.Exception ( finally )
+import Data.ByteString ( ByteString )
 
 {- | Main database handle object.
 
@@ -78,7 +79,7 @@ This function discards any data not committed already.  Database driver
 implementators should explicitly call 'rollback' if their databases don't
 do this automatically on disconnect.
 
-Bad Things (TM) could happen if you call this while you have 'Statement's 
+Bad Things (TM) could happen if you call this while you have 'Statement's
 active.  In more precise language, the results in such situations are undefined
 and vary by database.  So don't do it.
 
@@ -95,7 +96,7 @@ and vary by database.  So don't do it.
                    queries. This is intended for situations where you
                    need to run DML or DDL queries and aren't
                    interested in results. -}
-                runRaw :: conn -> String -> IO ()
+                runRaw :: conn -> ByteString -> IO ()
                 runRaw conn sql = do
                   sth <- prepare conn sql
                   _ <- execute sth [] `finally` finish sth
@@ -104,8 +105,8 @@ and vary by database.  So don't do it.
                    of rows modified (see 'execute' for details).
                    The second parameter is a list
                    of replacement values, if any. -}
-                run :: conn -> String -> [SqlValue] -> IO Integer
-                {- | Prepares a statement for execution. 
+                run :: conn -> ByteString -> [SqlValue] -> IO Integer
+                {- | Prepares a statement for execution.
 
                    Question marks in the statement will be replaced by
                    positional parameters in a later call to 'execute'.
@@ -114,7 +115,7 @@ and vary by database.  So don't do it.
                    and the driver, errors in your SQL may be raised
                    either here or by 'execute'.  Make sure you
                    handle exceptions both places if necessary. -}
-                prepare :: conn -> String -> IO Statement
+                prepare :: conn -> ByteString -> IO Statement
                 {- | Create a new 'Connection' object, pointed at the same
                    server as this object is.  This will generally establish
                    a separate physical connection.
@@ -123,7 +124,7 @@ and vary by database.  So don't do it.
                    server, the correct way to do so is to establish the
                    first connection with the driver-specific connection
                    function, and then clone it for each additional connection.
-                   
+
                    This can be important when a database doesn't provide
                    much thread support itself, and the HDBC driver module
                    must serialize access to a particular database.
@@ -139,25 +140,25 @@ and vary by database.  So don't do it.
                    of the Cabal package name.  For instance, \"sqlite3\"
                    or \"odbc\".  This is the layer that is bound most
                    tightly to HDBC. -}
-                hdbcDriverName :: conn -> String
+                hdbcDriverName :: conn -> ByteString
                 {- | The version of the C (or whatever) client library
                    that the HDBC driver module is bound to.  The meaning
                    of this is driver-specific.  For an ODBC or similar
                    proxying driver, this should be the version of the
                    ODBC library, not the eventual DB client driver. -}
-                hdbcClientVer :: conn -> String
+                hdbcClientVer :: conn -> ByteString
                 {- | In the case of a system such as ODBC, the name of
                    the database client\/server in use, if available.
                    For others,
                    identical to 'hdbcDriverName'. -}
-                proxiedClientName :: conn -> String
+                proxiedClientName :: conn -> ByteString
                 {- | In the case of a system such as ODBC, the version of
                    the database client in use, if available.  For others,
                    identical to 'hdbcClientVer'. This is the next layer
                    out past the HDBC driver. -}
-                proxiedClientVer :: conn -> String
+                proxiedClientVer :: conn -> ByteString
                 {- | The version of the database server, if available. -}
-                dbServerVer :: conn -> String
+                dbServerVer :: conn -> ByteString
                 {- | Whether or not the current database supports transactions.
                    If False, then 'commit' and 'rollback' should be expected
                    to raise errors.
@@ -169,14 +170,14 @@ and vary by database.  So don't do it.
 
                 {- | The names of all tables accessible by the current
                    connection, excluding special meta-tables (system tables).
-                   
+
                    You should expect this to be returned in the same manner
                    as a result from 'Database.HDBC.fetchAllRows''.
 
                    All results should be converted to lowercase for you
                    before you see them.
                      -}
-                getTables :: conn -> IO [String]
+                getTables :: conn -> IO [ByteString]
 
                 {- | Obtain information about the columns in a specific
                    table.  The String in the result
@@ -188,7 +189,7 @@ and vary by database.  So don't do it.
                    All results should be converted to lowercase for you
                    before you see them.
                    -}
-                describeTable :: conn -> String -> IO [(String, SqlColDesc)]
+                describeTable :: conn -> ByteString -> IO [(ByteString, SqlColDesc)]
 
 {- | Sometimes, it is annoying to use typeclasses with Haskell's type system.
 In those situations, you can use a ConnWrapper.  You can create one with:

@@ -38,6 +38,7 @@ module Database.HDBC.ColTypes (SqlColDesc(..),
 
 where
 import Data.Dynamic
+import Data.ByteString ( ByteString )
 
 {- | The description of a column.
 
@@ -52,7 +53,7 @@ types, the total number of digits allowed.  See the ODBC manual for more.
 The colOctetLength field is defined for character and binary types, and
 gives the number of bytes the column requires, regardless of encoding.
 -}
-data SqlColDesc = 
+data SqlColDesc =
    SqlColDesc {
                colType :: SqlTypeId   -- ^ Type of data stored here
               ,colSize :: Maybe Int   -- ^ The size of a column
@@ -68,7 +69,7 @@ sqlColDescTc = mkTyCon "Database.HDBC.SqlColDesc"
 instance Typeable SqlColDesc where
     typeOf _ = mkTyConApp sqlColDescTc []
 
-{- | The type identifier for a given column. 
+{- | The type identifier for a given column.
 
 This represents the type of data stored in the column in the underlying
 SQL engine.  It does not form the entire column type; see 'SqlColDesc' for
@@ -104,7 +105,7 @@ data SqlTypeId =
     | SqlUTCTimeT               -- ^ UTC time
     | SqlIntervalT SqlInterval  -- ^ A time or date difference
     | SqlGUIDT                  -- ^ Global unique identifier
-    | SqlUnknownT String        -- ^ A type not represented here; implementation-specific information in the String
+    | SqlUnknownT ByteString    -- ^ A type not represented here; implementation-specific information in the String
 
   deriving (Eq, Show, Read)
 

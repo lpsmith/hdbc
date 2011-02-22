@@ -13,6 +13,7 @@ import Data.Dynamic
 import Database.HDBC.ColTypes
 import Database.HDBC.SqlValue
 import Control.Exception
+import Data.ByteString ( ByteString )
 
 data Statement = Statement
     {
@@ -39,8 +40,8 @@ data Statement = Statement
         certainly fail; use 'execute' instead. -}
      executeRaw :: IO (),
 
-     {- | Execute the query with many rows. 
-        The return value is the return value from the final row 
+     {- | Execute the query with many rows.
+        The return value is the return value from the final row
         as if you had called 'execute' on it.
 
         Due to optimizations that are possible due to different
@@ -50,7 +51,7 @@ data Statement = Statement
 
         This is most useful for non-SELECT statements. -}
      executeMany :: [[SqlValue]] -> IO (),
-                 
+
      {- | Abort a query in progress -- usually not needed. -}
      finish :: IO (),
 
@@ -63,7 +64,7 @@ data Statement = Statement
         For maximum portability, you should not assume that
         information is available until after an 'execute' function
         has been run.
-        
+
         Information is returned here directly as returned
         by the underlying database layer.  Note that different
         databases have different rules about capitalization
@@ -77,12 +78,12 @@ data Statement = Statement
         A simple getColumnNames implementation could simply
         apply @map fst@ to the return value of 'describeResult'.
         -}
-     getColumnNames :: IO [String],
+     getColumnNames :: IO [ByteString],
 
 
      {- | The original query that this 'Statement' was prepared
           with. -}
-     originalQuery :: String,
+     originalQuery :: ByteString,
      {- | Obtain information about the columns in the result set.
           Must be run only after 'execute'.  The String in the result
           set is the column name.
@@ -96,7 +97,7 @@ data Statement = Statement
           Please see caveats under 'getColumnNames' for information
           on the column name field here.
  -}
-     describeResult :: IO [(String, SqlColDesc)]
+     describeResult :: IO [(ByteString, SqlColDesc)]
     }
 
 {- | The main HDBC exception object.  As much information as possible
@@ -104,9 +105,9 @@ is passed from the database through to the application through this object.
 
 Errors generated in the Haskell layer will have seNativeError set to -1.
 -}
-data SqlError = SqlError {seState :: String,
+data SqlError = SqlError {seState :: ByteString,
                           seNativeError :: Int,
-                          seErrorMsg :: String}
+                          seErrorMsg :: ByteString}
                 deriving (Eq, Show, Read)
 
 sqlErrorTc :: TyCon
